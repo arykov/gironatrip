@@ -98,6 +98,7 @@
             
             
             options = {"map_options":{"line_types":[]}}
+            geoJson.features.sort((a, b)=>a.properties.metrics.distance-b.properties.metrics.distance)
             for(i=0;i<geoJson.features.length;i++){
               const type = `${geoJson.features[i].properties.metrics.distance}km asc:${geoJson.features[i].properties.metrics.ascent}m id:${i}`
               //i.toString()+":"+geoJson.features[i].properties.metrics.distance.toString()+"km, asc: "JSON.stringify(geoJson.features[i].properties.metrics)
