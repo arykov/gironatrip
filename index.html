@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <link rel="stylesheet" href="dist/latest/css/waymark-js.min.css" />
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="dist/latest/js/waymark-js.min.js"></script>  
+  <script src="dist/latest/js/waymark-js.min.js"></script>
 </head>
 
 <body>
@@ -13,7 +13,7 @@
   <div id="waymark-map"></div>
 
   <script>
-    colors=[ "black", "gray", "navy", "blue", "teal", "aqua", "green", "lime", "olive", "yellow", "maroon", "red", "purple", "fuchsia"]
+    colors = ["black", "gray", "navy", "blue", "teal", "aqua", "green", "lime", "olive", "yellow", "maroon", "red", "purple", "fuchsia"]
     function calculateGeoJsonMetrics(geojson) {
       function haversineDistance(coord1, coord2) {
         const [lon1, lat1] = coord1;
@@ -58,8 +58,27 @@
 
       })
     }
+    function sort(features){
+      function distanceZeroIfNull(feature){
+        try{
+          return a.properties.metrics.distance
+        }catch{
+          return 0
+        }
+      }
+      features.sort((a, b) => distanceZeroIfNull(a) - distanceZeroIfNull(b))
+    }
     async function loadMaps() {
       try {
+        const poiResponse = await fetch('poi.json')
+        if (poiResponse.ok) {
+          poiGeoJson = await poiResponse.json()
+
+        } else {
+          console.error('No POI file')
+          poiGeoJson = { "type": "FeatureCollection", "features": [] }
+        }
+
         const response = await fetch('maps.json');
         if (!response.ok) {
           throw new Error("Unable to load maps.json: ${response.status}");
@@ -80,10 +99,10 @@
               const xmlDoc = parser.parseFromString(text, 'text/xml')
               g = toGeoJSON.gpx(xmlDoc)
               geoJsonMetrics = calculateGeoJsonMetrics(g)
-              for (i = 0; i < g.features.length; i++) {                
+              for (i = 0; i < g.features.length; i++) {
                 delete geoJsonMetrics[i].descent
                 g.features[i].properties.metrics = geoJsonMetrics[i]
-                
+
               }
 
               return g
@@ -94,25 +113,28 @@
             const geoJson = responses.reduce((acc, geoJson) => {
               acc.features.push(...geoJson.features)
               return acc
-            }, { "type": "FeatureCollection", "features": [] });
+            }, poiGeoJson);
+
+
+            options = { "map_options": { "line_types": [] } }
+            sort(geoJson.features)
             
-            
-            options = {"map_options":{"line_types":[]}}
-            geoJson.features.sort((a, b)=>a.properties.metrics.distance-b.properties.metrics.distance)
-            for(i=0;i<geoJson.features.length;i++){
-              const type = `${geoJson.features[i].properties.metrics.distance}km asc:${geoJson.features[i].properties.metrics.ascent}m id:${i}`
-              //i.toString()+":"+geoJson.features[i].properties.metrics.distance.toString()+"km, asc: "JSON.stringify(geoJson.features[i].properties.metrics)
-              geoJson.features[i].properties.type = type
-              options.map_options.line_types.push(
-                {
-                "line_title": type,
-                "line_colour": colors[i%colors.length],
-                "line_weight": "5",
-                "line_opacity": "0.7",
-                "line_display": "1",
-                "line_submission": "1"
-            }    
-              )
+            for (i = 0; i < geoJson.features.length; i++) {
+              if (geoJson.features[i].geometry.type === 'LineString') {
+                const type = `${geoJson.features[i].properties.metrics.distance}km asc:${geoJson.features[i].properties.metrics.ascent}m id:${i}`
+
+                geoJson.features[i].properties.type = type
+                options.map_options.line_types.push(
+                  {
+                    "line_title": type,
+                    "line_colour": colors[i % colors.length],
+                    "line_weight": "5",
+                    "line_opacity": "0.7",
+                    "line_display": "1",
+                    "line_submission": "1"
+                  }
+                )
+              }
 
             }
             const viewer = window.Waymark_Map_Factory.viewer();
